@@ -1,0 +1,32 @@
+id: d43f182f-84bd-4fd7-b16f-bca7a9647f11
+name: Usage - Hourly billable ingestion spike
+description: Detects an hourly spike in billable ingestion in Usage vs a rolling 8-day hourly baseline.
+severity: Medium
+kind: Scheduled
+queryFrequency: 1h
+queryPeriod: 8d
+triggerOperator: GreaterThan
+triggerThreshold: 0
+tactics:
+  - Impact
+query: |
+  let currentHour = Usage
+  | where TimeGenerated > ago(1h) and IsBillable == true
+  | summarize CurrentMB = sum(Quantity);
+  let baseline = Usage
+  | where TimeGenerated between (ago(8d) .. ago(1h)) and IsBillable == true
+  | summarize HourlyMB = sum(Quantity) by bin(TimeGenerated, 1h)
+  | summarize BaselineMB = avg(HourlyMB);
+  currentHour
+  | extend BaselineMB = toreal(toscalar(baseline))
+  | extend SpikeRatio = iif(BaselineMB == 0.0, 0.0, CurrentMB / BaselineMB)
+  | where CurrentMB > (BaselineMB * 2.5) and CurrentMB > 500
+  | project TimeGenerated = now(), CurrentMB, BaselineMB, SpikeRatio
+incidentConfiguration:
+  createIncident: true
+entityMappings: []
+customDetails:
+  CurrentMB: CurrentMB
+  BaselineMB: BaselineMB
+  SpikeRatio: SpikeRatio
+version: 1.0.0

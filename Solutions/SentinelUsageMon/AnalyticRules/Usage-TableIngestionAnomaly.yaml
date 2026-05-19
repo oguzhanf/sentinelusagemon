@@ -1,0 +1,33 @@
+id: 5028ffdb-2fbc-4e39-9645-3d7da8cf7f80
+name: Usage - Table-level ingestion anomaly
+description: Detects table-specific ingestion jumps in the last hour vs a 14-day baseline.
+severity: Medium
+kind: Scheduled
+queryFrequency: 1h
+queryPeriod: 14d
+triggerOperator: GreaterThan
+triggerThreshold: 0
+tactics:
+  - Impact
+query: |
+  let current = Usage
+  | where TimeGenerated > ago(1h) and IsBillable == true
+  | summarize CurrentMB = sum(Quantity) by DataType;
+  let baseline = Usage
+  | where TimeGenerated between (ago(14d) .. ago(1h)) and IsBillable == true
+  | summarize HourlyMB = sum(Quantity) by DataType, bin(TimeGenerated, 1h)
+  | summarize BaselineMB = avg(HourlyMB) by DataType;
+  current
+  | join kind=inner baseline on DataType
+  | extend SpikeRatio = iif(BaselineMB == 0.0, 0.0, CurrentMB / BaselineMB)
+  | where CurrentMB > (BaselineMB * 3.0) and CurrentMB > 200
+  | project TimeGenerated = now(), DataType, CurrentMB, BaselineMB, SpikeRatio
+incidentConfiguration:
+  createIncident: true
+entityMappings: []
+customDetails:
+  DataType: DataType
+  CurrentMB: CurrentMB
+  BaselineMB: BaselineMB
+  SpikeRatio: SpikeRatio
+version: 1.0.0

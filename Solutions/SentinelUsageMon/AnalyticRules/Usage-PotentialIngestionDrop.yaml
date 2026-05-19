@@ -1,0 +1,31 @@
+id: 3cc9f4e1-d1b8-48ba-a9ec-54a849b0f8ef
+name: Usage - Potential ingestion drop
+description: Detects billable ingestion drops over 6 hours compared to a 14-day historical baseline.
+severity: High
+kind: Scheduled
+queryFrequency: 1h
+queryPeriod: 14d
+triggerOperator: GreaterThan
+triggerThreshold: 0
+tactics:
+  - Impact
+query: |
+  let recent = Usage
+  | where TimeGenerated > ago(6h) and IsBillable == true
+  | summarize RecentMB = sum(Quantity);
+  let baseline = Usage
+  | where TimeGenerated between (ago(14d) .. ago(6h)) and IsBillable == true
+  | summarize BlockMB = sum(Quantity) by bin(TimeGenerated, 6h)
+  | summarize BaselineMB = avg(BlockMB);
+  recent
+  | extend BaselineMB = toreal(toscalar(baseline))
+  | where BaselineMB > 500 and RecentMB < (BaselineMB * 0.2)
+  | project TimeGenerated = now(), RecentMB, BaselineMB, DropRatio = iif(BaselineMB == 0.0, 0.0, RecentMB / BaselineMB)
+incidentConfiguration:
+  createIncident: true
+entityMappings: []
+customDetails:
+  RecentMB: RecentMB
+  BaselineMB: BaselineMB
+  DropRatio: DropRatio
+version: 1.0.0

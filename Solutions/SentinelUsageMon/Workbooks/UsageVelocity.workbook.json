@@ -1,0 +1,208 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "# Sentinel Usage Velocity\nHourly ingestion velocity, anomaly detection on the last hour, and end-of-month projections based on the last 24 hours and last 1 hour."
+      },
+      "name": "header"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "p-lookback",
+            "version": "KqlParameterItem/1.0",
+            "name": "Lookback",
+            "type": 4,
+            "isRequired": true,
+            "value": { "durationMs": 604800000 },
+            "typeSettings": {
+              "selectableValues": [
+                { "durationMs": 86400000 },
+                { "durationMs": 259200000 },
+                { "durationMs": 604800000 },
+                { "durationMs": 1209600000 },
+                { "durationMs": 2592000000 }
+              ]
+            }
+          },
+          {
+            "id": "p-billableonly",
+            "version": "KqlParameterItem/1.0",
+            "name": "BillableOnly",
+            "type": 2,
+            "value": "true",
+            "jsonData": "[{\"value\":\"true\",\"label\":\"Billable only\"},{\"value\":\"false\",\"label\":\"All ingestion\"}]"
+          },
+          {
+            "id": "p-anomalythreshold",
+            "version": "KqlParameterItem/1.0",
+            "name": "AnomalyScore",
+            "label": "Anomaly score threshold",
+            "type": 1,
+            "value": "1.5"
+          }
+        ],
+        "style": "pills"
+      },
+      "name": "parameters"
+    },
+    {
+      "type": 1,
+      "content": { "json": "## Hourly ingestion velocity (MB/hour)" },
+      "name": "section-velocity"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let billable = tobool('{BillableOnly}');\nUsage\n| where TimeGenerated {Lookback}\n| where billable == false or IsBillable == true\n| summarize MB = sum(Quantity) by bin(TimeGenerated, 1h)\n| order by TimeGenerated asc\n| render timechart",
+        "size": 0,
+        "title": "Hourly ingestion (MB/hour)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      },
+      "name": "chart-hourly"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let billable = tobool('{BillableOnly}');\nlet score = todouble('{AnomalyScore}');\nlet series =\n    Usage\n    | where TimeGenerated {Lookback}\n    | where billable == false or IsBillable == true\n    | summarize MB = sum(Quantity) by bin(TimeGenerated, 1h)\n    | order by TimeGenerated asc\n    | summarize Times = make_list(TimeGenerated), Values = make_list(MB);\nseries\n| extend (Anomalies, AnomalyScore, Baseline) = series_decompose_anomalies(Values, score, -1, 'linefit')\n| mv-expand TimeGenerated = Times to typeof(datetime), MB = Values to typeof(double), Baseline to typeof(double), Anomalies to typeof(long), AnomalyScore to typeof(double)\n| project TimeGenerated, MB, Baseline, AnomalyScore, Anomalies\n| order by TimeGenerated asc\n| render timechart",
+        "size": 0,
+        "title": "Hourly ingestion with anomaly baseline",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      },
+      "name": "chart-anomaly"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let billable = tobool('{BillableOnly}');\nlet score = todouble('{AnomalyScore}');\nlet series =\n    Usage\n    | where TimeGenerated {Lookback}\n    | where billable == false or IsBillable == true\n    | summarize MB = sum(Quantity) by bin(TimeGenerated, 1h)\n    | order by TimeGenerated asc\n    | summarize Times = make_list(TimeGenerated), Values = make_list(MB);\nseries\n| extend (Anomalies, AnomalyScore, Baseline) = series_decompose_anomalies(Values, score, -1, 'linefit')\n| mv-expand TimeGenerated = Times to typeof(datetime), MB = Values to typeof(double), Baseline to typeof(double), Anomalies to typeof(long), AnomalyScore to typeof(double)\n| where Anomalies != 0\n| extend Direction = case(Anomalies == 1, 'Increase', Anomalies == -1, 'Decrease', 'None')\n| project TimeGenerated, Direction, MB, Baseline, AnomalyScore\n| order by TimeGenerated desc",
+        "size": 0,
+        "title": "Detected anomalies",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "Direction",
+              "formatter": 18,
+              "formatOptions": {
+                "thresholdsOptions": "icons",
+                "thresholdsGrid": [
+                  { "operator": "==", "thresholdValue": "Increase", "representation": "4", "text": "Increase" },
+                  { "operator": "==", "thresholdValue": "Decrease", "representation": "3", "text": "Decrease" },
+                  { "operator": "Default", "representation": "success", "text": "{0}" }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "name": "grid-anomalies"
+    },
+    {
+      "type": 1,
+      "content": { "json": "## Current vs baseline" },
+      "name": "section-current"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let billable = tobool('{BillableOnly}');\nlet current = Usage | where TimeGenerated > ago(1h) | where billable == false or IsBillable == true | summarize CurrentMB = sum(Quantity);\nlet baseline = Usage | where TimeGenerated between (ago(8d) .. ago(1h)) | where billable == false or IsBillable == true | summarize HourlyMB = sum(Quantity) by bin(TimeGenerated, 1h) | summarize BaselineMB = avg(HourlyMB);\ncurrent\n| extend BaselineMB = toreal(toscalar(baseline))\n| extend SpikeRatio = iif(BaselineMB == 0.0, 0.0, CurrentMB / BaselineMB)\n| project CurrentMB, BaselineMB, SpikeRatio",
+        "size": 4,
+        "title": "Last hour vs 8-day hourly baseline",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": { "columnMatch": "CurrentMB", "formatter": 0 },
+          "leftContent": { "columnMatch": "CurrentMB", "formatter": 12, "formatOptions": { "palette": "auto" } },
+          "showBorder": true
+        }
+      },
+      "name": "tile-current"
+    },
+    {
+      "type": 1,
+      "content": { "json": "## End-of-month projections\nProjection = ingestion to date this month + (per-hour velocity x remaining hours in month)." },
+      "name": "section-projection"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let billable = tobool('{BillableOnly}');\nlet now_ = now();\nlet monthStart = startofmonth(now_);\nlet nextMonth = startofmonth(datetime_add('month', 1, now_));\nlet hoursInMonth = (nextMonth - monthStart) / 1h;\nlet hoursElapsed = (now_ - monthStart) / 1h;\nlet hoursRemaining = hoursInMonth - hoursElapsed;\nlet mtdMB = toscalar(\n    Usage\n    | where TimeGenerated >= monthStart\n    | where billable == false or IsBillable == true\n    | summarize sum(Quantity));\nlet last24Velocity = toscalar(\n    Usage\n    | where TimeGenerated > ago(24h)\n    | where billable == false or IsBillable == true\n    | summarize MB = sum(Quantity)\n    | extend VelocityMBph = MB / 24.0\n    | project VelocityMBph);\nlet last1Velocity = toscalar(\n    Usage\n    | where TimeGenerated > ago(1h)\n    | where billable == false or IsBillable == true\n    | summarize VelocityMBph = sum(Quantity));\nlet mtdGB = mtdMB / 1024.0;\nlet proj24GB = (mtdMB + (last24Velocity * hoursRemaining)) / 1024.0;\nlet proj1GB  = (mtdMB + (last1Velocity  * hoursRemaining)) / 1024.0;\nprint\n    MonthToDateGB = mtdGB,\n    HoursElapsed = hoursElapsed,\n    HoursRemaining = hoursRemaining,\n    Last24hVelocityMBph = last24Velocity,\n    Last1hVelocityMBph = last1Velocity,\n    ProjectedEoM_From24h_GB = proj24GB,\n    ProjectedEoM_From1h_GB = proj1GB,\n    DeltaGB_1h_vs_24h = proj1GB - proj24GB",
+        "size": 4,
+        "title": "End-of-month projections",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": { "columnMatch": "MonthToDateGB" },
+          "leftContent": { "columnMatch": "ProjectedEoM_From24h_GB", "formatter": 0 },
+          "showBorder": true
+        }
+      },
+      "name": "tile-projections"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let billable = tobool('{BillableOnly}');\nlet now_ = now();\nlet monthStart = startofmonth(now_);\nlet nextMonth = startofmonth(datetime_add('month', 1, now_));\nlet hoursInMonth = (nextMonth - monthStart) / 1h;\nlet hoursElapsed = (now_ - monthStart) / 1h;\nlet hoursRemaining = hoursInMonth - hoursElapsed;\nlet mtdMB = toscalar(\n    Usage\n    | where TimeGenerated >= monthStart\n    | where billable == false or IsBillable == true\n    | summarize sum(Quantity));\nlet last24Velocity = toscalar(\n    Usage\n    | where TimeGenerated > ago(24h)\n    | where billable == false or IsBillable == true\n    | summarize MB = sum(Quantity)\n    | extend v = MB / 24.0\n    | project v);\nlet last1Velocity = toscalar(\n    Usage\n    | where TimeGenerated > ago(1h)\n    | where billable == false or IsBillable == true\n    | summarize sum(Quantity));\nlet observed = Usage\n    | where TimeGenerated >= monthStart\n    | where billable == false or IsBillable == true\n    | summarize MB = sum(Quantity) by bin(TimeGenerated, 1h)\n    | order by TimeGenerated asc\n    | extend CumulativeGB = (row_cumsum(MB)) / 1024.0\n    | project TimeGenerated, Series = 'Actual MTD (GB)', Value = CumulativeGB;\nlet futureHours = range h from 1 to toint(hoursRemaining) step 1\n    | extend TimeGenerated = datetime_add('hour', h, now_);\nlet baseGB = mtdMB / 1024.0;\nlet proj24 = futureHours | extend Series = 'Projected from 24h velocity (GB)', Value = baseGB + ((h * last24Velocity) / 1024.0) | project TimeGenerated, Series, Value;\nlet proj1  = futureHours | extend Series = 'Projected from 1h velocity (GB)',  Value = baseGB + ((h * last1Velocity)  / 1024.0) | project TimeGenerated, Series, Value;\nobserved\n| union proj24, proj1\n| order by TimeGenerated asc\n| render timechart",
+        "size": 0,
+        "title": "Cumulative MTD ingestion vs projections (GB)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      },
+      "name": "chart-projection"
+    },
+    {
+      "type": 1,
+      "content": { "json": "## Per-table hourly velocity" },
+      "name": "section-pertable"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let billable = tobool('{BillableOnly}');\nUsage\n| where TimeGenerated {Lookback}\n| where billable == false or IsBillable == true\n| summarize MB = sum(Quantity) by bin(TimeGenerated, 1h), DataType\n| order by TimeGenerated asc\n| render timechart",
+        "size": 0,
+        "title": "Hourly ingestion by DataType",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      },
+      "name": "chart-pertable"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let billable = tobool('{BillableOnly}');\nlet last1 = Usage | where TimeGenerated > ago(1h) | where billable == false or IsBillable == true | summarize Last1hMB = sum(Quantity) by DataType;\nlet avg24 = Usage | where TimeGenerated > ago(24h) | where billable == false or IsBillable == true | summarize MB = sum(Quantity) by DataType | extend Avg24hMBph = MB / 24.0 | project DataType, Avg24hMBph;\nlast1\n| join kind=fullouter avg24 on DataType\n| extend DataType = coalesce(DataType, DataType1)\n| project DataType, Last1hMB = coalesce(Last1hMB, 0.0), Avg24hMBph = coalesce(Avg24hMBph, 0.0)\n| extend SpikeRatio = iif(Avg24hMBph == 0.0, 0.0, Last1hMB / Avg24hMBph)\n| order by SpikeRatio desc",
+        "size": 0,
+        "title": "Per-table last hour vs 24h average",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "gridSettings": {
+          "formatters": [
+            { "columnMatch": "Last1hMB", "formatter": 8, "formatOptions": { "palette": "blue" } },
+            { "columnMatch": "Avg24hMBph", "formatter": 8, "formatOptions": { "palette": "gray" } },
+            { "columnMatch": "SpikeRatio", "formatter": 8, "formatOptions": { "palette": "redGreen" } }
+          ]
+        }
+      },
+      "name": "grid-pertable"
+    }
+  ],
+  "fallbackResourceIds": [],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}

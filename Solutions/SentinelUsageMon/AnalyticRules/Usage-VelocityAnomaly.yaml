@@ -1,0 +1,35 @@
+id: 9b53d2f0-1c4c-4f5a-9d39-2f6a3c3e4d5b
+name: Usage - Velocity anomaly (last hour vs 24h average)
+description: Alerts when the last hour's ingestion velocity (MB/hour) deviates significantly from the average velocity over the prior 24 hours - the same signal used by the workbook's end-of-month projection delta.
+severity: Medium
+kind: Scheduled
+queryFrequency: 1h
+queryPeriod: 1d
+triggerOperator: GreaterThan
+triggerThreshold: 0
+tactics:
+  - Impact
+query: |
+  let last1 = Usage
+  | where TimeGenerated > ago(1h) and IsBillable == true
+  | summarize Last1hMB = sum(Quantity);
+  let prior24 = Usage
+  | where TimeGenerated between (ago(25h) .. ago(1h)) and IsBillable == true
+  | summarize MB = sum(Quantity)
+  | extend Prior24hVelocityMBph = MB / 24.0
+  | project Prior24hVelocityMBph;
+  last1
+  | extend Prior24hVelocityMBph = toreal(toscalar(prior24))
+  | extend VelocityRatio = iif(Prior24hVelocityMBph == 0.0, 0.0, Last1hMB / Prior24hVelocityMBph)
+  | where Prior24hVelocityMBph > 100 and VelocityRatio > 2.0
+  | extend ProjectedExtraMBIfSustained = (Last1hMB - Prior24hVelocityMBph) * 24.0
+  | project TimeGenerated = now(), Last1hMB, Prior24hVelocityMBph, VelocityRatio, ProjectedExtraMBIfSustained
+incidentConfiguration:
+  createIncident: true
+entityMappings: []
+customDetails:
+  Last1hMB: Last1hMB
+  Prior24hVelocityMBph: Prior24hVelocityMBph
+  VelocityRatio: VelocityRatio
+  ProjectedExtraMBIfSustained: ProjectedExtraMBIfSustained
+version: 1.0.0
