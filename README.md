@@ -4,15 +4,21 @@ Solution-hub-style content for Microsoft Sentinel that monitors hourly ingestion
 
 ## Deploy
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FmainTemplate.json)
-[![Deploy to Azure Gov](https://aka.ms/deploytoazuregovbutton)](https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FmainTemplate.json)
+One-click deploy — pick a target:
 
-The button deploys the four analytics rules. You will be prompted for:
+| What | Commercial | Gov |
+|---|---|---|
+| **Everything** (4 rules + workbook) | [![Deploy](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2Fazuredeploy.json) | [![Deploy Gov](https://aka.ms/deploytoazuregovbutton)](https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2Fazuredeploy.json) |
+| Analytics rules only | [![Deploy](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FmainTemplate.json) | [![Deploy Gov](https://aka.ms/deploytoazuregovbutton)](https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FmainTemplate.json) |
+| Workbook only | [![Deploy](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FworkbookTemplate.portal.json) | [![Deploy Gov](https://aka.ms/deploytoazuregovbutton)](https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FworkbookTemplate.portal.json) |
 
-- **Workspace** — the name of your Sentinel-enabled Log Analytics workspace (must be in the resource group you select on the portal blade).
-- **Rule Enabled** — leave `true` to enable on deploy, or `false` to deploy disabled.
+You will be prompted for:
 
-The workbook is **not** deployable via the button because the portal template UI cannot accept the large `workbookSerializedData` parameter inline. Use the helper script or the manual portal-import flow in [Deployment](#deployment) below.
+- **Workspace** — the name of your Sentinel-enabled Log Analytics workspace (must live in the resource group you choose on the portal blade).
+- **Rule Enabled** (rules / everything) — leave `true` to enable on deploy, or `false` to deploy disabled.
+- **Workbook Display Name** (workbook / everything) — defaults to *Sentinel Usage Velocity*.
+
+> The portal-ready templates ([azuredeploy.json](Solutions/SentinelUsageMon/Package/azuredeploy.json) and [workbookTemplate.portal.json](Solutions/SentinelUsageMon/Package/workbookTemplate.portal.json)) embed the workbook JSON inline. If you edit [UsageVelocity.workbook.json](Solutions/SentinelUsageMon/Workbooks/UsageVelocity.workbook.json), regenerate them with `python3 Solutions/SentinelUsageMon/Package/build-portal-templates.py`.
 
 ## What's included
 

@@ -1,0 +1,249 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string",
+      "metadata": {
+        "description": "Microsoft Sentinel workspace name."
+      }
+    },
+    "ruleEnabled": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Enable analytics rules after deployment."
+      }
+    },
+    "workbookDisplayName": {
+      "type": "string",
+      "defaultValue": "Sentinel Usage Velocity",
+      "metadata": {
+        "description": "Display name shown in the Workbooks gallery."
+      }
+    },
+    "workbookId": {
+      "type": "string",
+      "defaultValue": "[guid(resourceGroup().id, 'SentinelUsageVelocity')]",
+      "metadata": {
+        "description": "Stable GUID for the workbook resource."
+      }
+    }
+  },
+  "variables": {
+    "ruleIdIngestionSpike": "d43f182f-84bd-4fd7-b16f-bca7a9647f11",
+    "ruleIdTableSpike": "5028ffdb-2fbc-4e39-9645-3d7da8cf7f80",
+    "ruleIdIngestionDrop": "3cc9f4e1-d1b8-48ba-a9ec-54a849b0f8ef",
+    "ruleIdVelocityAnomaly": "9b53d2f0-1c4c-4f5a-9d39-2f6a3c3e4d5b"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2022-12-01-preview",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', variables('ruleIdIngestionSpike'))]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Usage - Hourly billable ingestion spike",
+        "description": "Detects a significant hourly spike in total billable Sentinel ingestion using the Usage table.",
+        "severity": "Medium",
+        "enabled": "[parameters('ruleEnabled')]",
+        "query": "let currentHour = Usage\\n| where TimeGenerated > ago(1h) and IsBillable == true\\n| summarize CurrentMB = sum(Quantity);\\nlet baseline = Usage\\n| where TimeGenerated between (ago(8d) .. ago(1h)) and IsBillable == true\\n| summarize HourlyMB = sum(Quantity) by bin(TimeGenerated, 1h)\\n| summarize BaselineMB = avg(HourlyMB);\\ncurrentHour\\n| extend BaselineMB = toreal(toscalar(baseline))\\n| extend SpikeRatio = iif(BaselineMB == 0.0, 0.0, CurrentMB / BaselineMB)\\n| where CurrentMB > (BaselineMB * 2.5) and CurrentMB > 500\\n| project TimeGenerated = now(), CurrentMB, BaselineMB, SpikeRatio",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "P8D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "tactics": [
+          "Impact"
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [
+              "DisplayName"
+            ],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "customDetails": {
+          "CurrentMB": "CurrentMB",
+          "BaselineMB": "BaselineMB",
+          "SpikeRatio": "SpikeRatio"
+        },
+        "entityMappings": []
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2022-12-01-preview",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', variables('ruleIdTableSpike'))]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Usage - Table-level ingestion anomaly",
+        "description": "Detects a per-table ingestion jump in the last hour compared to 14-day hourly average.",
+        "severity": "Medium",
+        "enabled": "[parameters('ruleEnabled')]",
+        "query": "let current = Usage\\n| where TimeGenerated > ago(1h) and IsBillable == true\\n| summarize CurrentMB = sum(Quantity) by DataType;\\nlet baseline = Usage\\n| where TimeGenerated between (ago(14d) .. ago(1h)) and IsBillable == true\\n| summarize HourlyMB = sum(Quantity) by DataType, bin(TimeGenerated, 1h)\\n| summarize BaselineMB = avg(HourlyMB) by DataType;\\ncurrent\\n| join kind=inner baseline on DataType\\n| extend SpikeRatio = iif(BaselineMB == 0.0, 0.0, CurrentMB / BaselineMB)\\n| where CurrentMB > (BaselineMB * 3.0) and CurrentMB > 200\\n| project TimeGenerated = now(), DataType, CurrentMB, BaselineMB, SpikeRatio",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "P14D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "tactics": [
+          "Impact"
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [],
+            "groupByAlertDetails": [
+              "DisplayName"
+            ],
+            "groupByCustomDetails": [
+              "DataType"
+            ]
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "customDetails": {
+          "DataType": "DataType",
+          "CurrentMB": "CurrentMB",
+          "BaselineMB": "BaselineMB",
+          "SpikeRatio": "SpikeRatio"
+        },
+        "entityMappings": []
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2022-12-01-preview",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', variables('ruleIdIngestionDrop'))]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Usage - Potential ingestion drop",
+        "description": "Detects a significant drop in billable ingestion over the last 6 hours compared with historical baseline.",
+        "severity": "High",
+        "enabled": "[parameters('ruleEnabled')]",
+        "query": "let recent = Usage\\n| where TimeGenerated > ago(6h) and IsBillable == true\\n| summarize RecentMB = sum(Quantity);\\nlet baseline = Usage\\n| where TimeGenerated between (ago(14d) .. ago(6h)) and IsBillable == true\\n| summarize BlockMB = sum(Quantity) by bin(TimeGenerated, 6h)\\n| summarize BaselineMB = avg(BlockMB);\\nrecent\\n| extend BaselineMB = toreal(toscalar(baseline))\\n| where BaselineMB > 500 and RecentMB < (BaselineMB * 0.2)\\n| project TimeGenerated = now(), RecentMB, BaselineMB, DropRatio = iif(BaselineMB == 0.0, 0.0, RecentMB / BaselineMB)",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "P14D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT6H",
+        "suppressionEnabled": false,
+        "tactics": [
+          "Impact"
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT6H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [
+              "DisplayName"
+            ],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "customDetails": {
+          "RecentMB": "RecentMB",
+          "BaselineMB": "BaselineMB",
+          "DropRatio": "DropRatio"
+        },
+        "entityMappings": []
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2022-12-01-preview",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', variables('ruleIdVelocityAnomaly'))]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Usage - Velocity anomaly (last hour vs 24h average)",
+        "description": "Alerts when the last hour ingestion velocity (MB/hour) deviates significantly from the prior 24h average velocity.",
+        "severity": "Medium",
+        "enabled": "[parameters('ruleEnabled')]",
+        "query": "let last1 = Usage\n| where TimeGenerated > ago(1h) and IsBillable == true\n| summarize Last1hMB = sum(Quantity);\nlet prior24 = Usage\n| where TimeGenerated between (ago(25h) .. ago(1h)) and IsBillable == true\n| summarize MB = sum(Quantity)\n| extend Prior24hVelocityMBph = MB / 24.0\n| project Prior24hVelocityMBph;\nlast1\n| extend Prior24hVelocityMBph = toreal(toscalar(prior24))\n| extend VelocityRatio = iif(Prior24hVelocityMBph == 0.0, 0.0, Last1hMB / Prior24hVelocityMBph)\n| where Prior24hVelocityMBph > 100 and VelocityRatio > 2.0\n| extend ProjectedExtraMBIfSustained = (Last1hMB - Prior24hVelocityMBph) * 24.0\n| project TimeGenerated = now(), Last1hMB, Prior24hVelocityMBph, VelocityRatio, ProjectedExtraMBIfSustained",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "tactics": [
+          "Impact"
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [
+              "DisplayName"
+            ],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "customDetails": {
+          "Last1hMB": "Last1hMB",
+          "Prior24hVelocityMBph": "Prior24hVelocityMBph",
+          "VelocityRatio": "VelocityRatio",
+          "ProjectedExtraMBIfSustained": "ProjectedExtraMBIfSustained"
+        },
+        "entityMappings": []
+      }
+    },
+    {
+      "type": "Microsoft.Insights/workbooks",
+      "apiVersion": "2022-04-01",
+      "name": "[parameters('workbookId')]",
+      "location": "[resourceGroup().location]",
+      "kind": "shared",
+      "properties": {
+        "displayName": "[parameters('workbookDisplayName')]",
+        "serializedData": "{\n  \"version\": \"Notebook/1.0\",\n  \"items\": [\n    {\n      \"type\": 1,\n      \"content\": {\n        \"json\": \"# Sentinel Usage Velocity\\nHourly ingestion velocity, anomaly detection on the last hour, and end-of-month projections based on the last 24 hours and last 1 hour.\"\n      },\n      \"name\": \"header\"\n    },\n    {\n      \"type\": 9,\n      \"content\": {\n        \"version\": \"KqlParameterItem/1.0\",\n        \"parameters\": [\n          {\n            \"id\": \"p-lookback\",\n            \"version\": \"KqlParameterItem/1.0\",\n            \"name\": \"Lookback\",\n            \"type\": 4,\n            \"isRequired\": true,\n            \"value\": { \"durationMs\": 604800000 },\n            \"typeSettings\": {\n              \"selectableValues\": [\n                { \"durationMs\": 86400000 },\n                { \"durationMs\": 259200000 },\n                { \"durationMs\": 604800000 },\n                { \"durationMs\": 1209600000 },\n                { \"durationMs\": 2592000000 }\n              ]\n            }\n          },\n          {\n            \"id\": \"p-billableonly\",\n            \"version\": \"KqlParameterItem/1.0\",\n            \"name\": \"BillableOnly\",\n            \"type\": 2,\n            \"value\": \"true\",\n            \"jsonData\": \"[{\\\"value\\\":\\\"true\\\",\\\"label\\\":\\\"Billable only\\\"},{\\\"value\\\":\\\"false\\\",\\\"label\\\":\\\"All ingestion\\\"}]\"\n          },\n          {\n            \"id\": \"p-anomalythreshold\",\n            \"version\": \"KqlParameterItem/1.0\",\n            \"name\": \"AnomalyScore\",\n            \"label\": \"Anomaly score threshold\",\n            \"type\": 1,\n            \"value\": \"1.5\"\n          }\n        ],\n        \"style\": \"pills\"\n      },\n      \"name\": \"parameters\"\n    },\n    {\n      \"type\": 1,\n      \"content\": { \"json\": \"## Hourly ingestion velocity (MB/hour)\" },\n      \"name\": \"section-velocity\"\n    },\n    {\n      \"type\": 3,\n      \"content\": {\n        \"version\": \"KqlItem/1.0\",\n        \"query\": \"let billable = tobool('{BillableOnly}');\\nUsage\\n| where TimeGenerated {Lookback}\\n| where billable == false or IsBillable == true\\n| summarize MB = sum(Quantity) by bin(TimeGenerated, 1h)\\n| order by TimeGenerated asc\\n| render timechart\",\n        \"size\": 0,\n        \"title\": \"Hourly ingestion (MB/hour)\",\n        \"queryType\": 0,\n        \"resourceType\": \"microsoft.operationalinsights/workspaces\"\n      },\n      \"name\": \"chart-hourly\"\n    },\n    {\n      \"type\": 3,\n      \"content\": {\n        \"version\": \"KqlItem/1.0\",\n        \"query\": \"let billable = tobool('{BillableOnly}');\\nlet score = todouble('{AnomalyScore}');\\nlet series =\\n    Usage\\n    | where TimeGenerated {Lookback}\\n    | where billable == false or IsBillable == true\\n    | summarize MB = sum(Quantity) by bin(TimeGenerated, 1h)\\n    | order by TimeGenerated asc\\n    | summarize Times = make_list(TimeGenerated), Values = make_list(MB);\\nseries\\n| extend (Anomalies, AnomalyScore, Baseline) = series_decompose_anomalies(Values, score, -1, 'linefit')\\n| mv-expand TimeGenerated = Times to typeof(datetime), MB = Values to typeof(double), Baseline to typeof(double), Anomalies to typeof(long), AnomalyScore to typeof(double)\\n| project TimeGenerated, MB, Baseline, AnomalyScore, Anomalies\\n| order by TimeGenerated asc\\n| render timechart\",\n        \"size\": 0,\n        \"title\": \"Hourly ingestion with anomaly baseline\",\n        \"queryType\": 0,\n        \"resourceType\": \"microsoft.operationalinsights/workspaces\"\n      },\n      \"name\": \"chart-anomaly\"\n    },\n    {\n      \"type\": 3,\n      \"content\": {\n        \"version\": \"KqlItem/1.0\",\n        \"query\": \"let billable = tobool('{BillableOnly}');\\nlet score = todouble('{AnomalyScore}');\\nlet series =\\n    Usage\\n    | where TimeGenerated {Lookback}\\n    | where billable == false or IsBillable == true\\n    | summarize MB = sum(Quantity) by bin(TimeGenerated, 1h)\\n    | order by TimeGenerated asc\\n    | summarize Times = make_list(TimeGenerated), Values = make_list(MB);\\nseries\\n| extend (Anomalies, AnomalyScore, Baseline) = series_decompose_anomalies(Values, score, -1, 'linefit')\\n| mv-expand TimeGenerated = Times to typeof(datetime), MB = Values to typeof(double), Baseline to typeof(double), Anomalies to typeof(long), AnomalyScore to typeof(double)\\n| where Anomalies != 0\\n| extend Direction = case(Anomalies == 1, 'Increase', Anomalies == -1, 'Decrease', 'None')\\n| project TimeGenerated, Direction, MB, Baseline, AnomalyScore\\n| order by TimeGenerated desc\",\n        \"size\": 0,\n        \"title\": \"Detected anomalies\",\n        \"queryType\": 0,\n        \"resourceType\": \"microsoft.operationalinsights/workspaces\",\n        \"gridSettings\": {\n          \"formatters\": [\n            {\n              \"columnMatch\": \"Direction\",\n              \"formatter\": 18,\n              \"formatOptions\": {\n                \"thresholdsOptions\": \"icons\",\n                \"thresholdsGrid\": [\n                  { \"operator\": \"==\", \"thresholdValue\": \"Increase\", \"representation\": \"4\", \"text\": \"Increase\" },\n                  { \"operator\": \"==\", \"thresholdValue\": \"Decrease\", \"representation\": \"3\", \"text\": \"Decrease\" },\n                  { \"operator\": \"Default\", \"representation\": \"success\", \"text\": \"{0}\" }\n                ]\n              }\n            }\n          ]\n        }\n      },\n      \"name\": \"grid-anomalies\"\n    },\n    {\n      \"type\": 1,\n      \"content\": { \"json\": \"## Current vs baseline\" },\n      \"name\": \"section-current\"\n    },\n    {\n      \"type\": 3,\n      \"content\": {\n        \"version\": \"KqlItem/1.0\",\n        \"query\": \"let billable = tobool('{BillableOnly}');\\nlet current = Usage | where TimeGenerated > ago(1h) | where billable == false or IsBillable == true | summarize CurrentMB = sum(Quantity);\\nlet baseline = Usage | where TimeGenerated between (ago(8d) .. ago(1h)) | where billable == false or IsBillable == true | summarize HourlyMB = sum(Quantity) by bin(TimeGenerated, 1h) | summarize BaselineMB = avg(HourlyMB);\\ncurrent\\n| extend BaselineMB = toreal(toscalar(baseline))\\n| extend SpikeRatio = iif(BaselineMB == 0.0, 0.0, CurrentMB / BaselineMB)\\n| project CurrentMB, BaselineMB, SpikeRatio\",\n        \"size\": 4,\n        \"title\": \"Last hour vs 8-day hourly baseline\",\n        \"queryType\": 0,\n        \"resourceType\": \"microsoft.operationalinsights/workspaces\",\n        \"visualization\": \"tiles\",\n        \"tileSettings\": {\n          \"titleContent\": { \"columnMatch\": \"CurrentMB\", \"formatter\": 0 },\n          \"leftContent\": { \"columnMatch\": \"CurrentMB\", \"formatter\": 12, \"formatOptions\": { \"palette\": \"auto\" } },\n          \"showBorder\": true\n        }\n      },\n      \"name\": \"tile-current\"\n    },\n    {\n      \"type\": 1,\n      \"content\": { \"json\": \"## End-of-month projections\\nProjection = ingestion to date this month + (per-hour velocity x remaining hours in month).\" },\n      \"name\": \"section-projection\"\n    },\n    {\n      \"type\": 3,\n      \"content\": {\n        \"version\": \"KqlItem/1.0\",\n        \"query\": \"let billable = tobool('{BillableOnly}');\\nlet now_ = now();\\nlet monthStart = startofmonth(now_);\\nlet nextMonth = startofmonth(datetime_add('month', 1, now_));\\nlet hoursInMonth = (nextMonth - monthStart) / 1h;\\nlet hoursElapsed = (now_ - monthStart) / 1h;\\nlet hoursRemaining = hoursInMonth - hoursElapsed;\\nlet mtdMB = toscalar(\\n    Usage\\n    | where TimeGenerated >= monthStart\\n    | where billable == false or IsBillable == true\\n    | summarize sum(Quantity));\\nlet last24Velocity = toscalar(\\n    Usage\\n    | where TimeGenerated > ago(24h)\\n    | where billable == false or IsBillable == true\\n    | summarize MB = sum(Quantity)\\n    | extend VelocityMBph = MB / 24.0\\n    | project VelocityMBph);\\nlet last1Velocity = toscalar(\\n    Usage\\n    | where TimeGenerated > ago(1h)\\n    | where billable == false or IsBillable == true\\n    | summarize VelocityMBph = sum(Quantity));\\nlet mtdGB = mtdMB / 1024.0;\\nlet proj24GB = (mtdMB + (last24Velocity * hoursRemaining)) / 1024.0;\\nlet proj1GB  = (mtdMB + (last1Velocity  * hoursRemaining)) / 1024.0;\\nprint\\n    MonthToDateGB = mtdGB,\\n    HoursElapsed = hoursElapsed,\\n    HoursRemaining = hoursRemaining,\\n    Last24hVelocityMBph = last24Velocity,\\n    Last1hVelocityMBph = last1Velocity,\\n    ProjectedEoM_From24h_GB = proj24GB,\\n    ProjectedEoM_From1h_GB = proj1GB,\\n    DeltaGB_1h_vs_24h = proj1GB - proj24GB\",\n        \"size\": 4,\n        \"title\": \"End-of-month projections\",\n        \"queryType\": 0,\n        \"resourceType\": \"microsoft.operationalinsights/workspaces\",\n        \"visualization\": \"tiles\",\n        \"tileSettings\": {\n          \"titleContent\": { \"columnMatch\": \"MonthToDateGB\" },\n          \"leftContent\": { \"columnMatch\": \"ProjectedEoM_From24h_GB\", \"formatter\": 0 },\n          \"showBorder\": true\n        }\n      },\n      \"name\": \"tile-projections\"\n    },\n    {\n      \"type\": 3,\n      \"content\": {\n        \"version\": \"KqlItem/1.0\",\n        \"query\": \"let billable = tobool('{BillableOnly}');\\nlet now_ = now();\\nlet monthStart = startofmonth(now_);\\nlet nextMonth = startofmonth(datetime_add('month', 1, now_));\\nlet hoursInMonth = (nextMonth - monthStart) / 1h;\\nlet hoursElapsed = (now_ - monthStart) / 1h;\\nlet hoursRemaining = hoursInMonth - hoursElapsed;\\nlet mtdMB = toscalar(\\n    Usage\\n    | where TimeGenerated >= monthStart\\n    | where billable == false or IsBillable == true\\n    | summarize sum(Quantity));\\nlet last24Velocity = toscalar(\\n    Usage\\n    | where TimeGenerated > ago(24h)\\n    | where billable == false or IsBillable == true\\n    | summarize MB = sum(Quantity)\\n    | extend v = MB / 24.0\\n    | project v);\\nlet last1Velocity = toscalar(\\n    Usage\\n    | where TimeGenerated > ago(1h)\\n    | where billable == false or IsBillable == true\\n    | summarize sum(Quantity));\\nlet observed = Usage\\n    | where TimeGenerated >= monthStart\\n    | where billable == false or IsBillable == true\\n    | summarize MB = sum(Quantity) by bin(TimeGenerated, 1h)\\n    | order by TimeGenerated asc\\n    | extend CumulativeGB = (row_cumsum(MB)) / 1024.0\\n    | project TimeGenerated, Series = 'Actual MTD (GB)', Value = CumulativeGB;\\nlet futureHours = range h from 1 to toint(hoursRemaining) step 1\\n    | extend TimeGenerated = datetime_add('hour', h, now_);\\nlet baseGB = mtdMB / 1024.0;\\nlet proj24 = futureHours | extend Series = 'Projected from 24h velocity (GB)', Value = baseGB + ((h * last24Velocity) / 1024.0) | project TimeGenerated, Series, Value;\\nlet proj1  = futureHours | extend Series = 'Projected from 1h velocity (GB)',  Value = baseGB + ((h * last1Velocity)  / 1024.0) | project TimeGenerated, Series, Value;\\nobserved\\n| union proj24, proj1\\n| order by TimeGenerated asc\\n| render timechart\",\n        \"size\": 0,\n        \"title\": \"Cumulative MTD ingestion vs projections (GB)\",\n        \"queryType\": 0,\n        \"resourceType\": \"microsoft.operationalinsights/workspaces\"\n      },\n      \"name\": \"chart-projection\"\n    },\n    {\n      \"type\": 1,\n      \"content\": { \"json\": \"## Per-table hourly velocity\" },\n      \"name\": \"section-pertable\"\n    },\n    {\n      \"type\": 3,\n      \"content\": {\n        \"version\": \"KqlItem/1.0\",\n        \"query\": \"let billable = tobool('{BillableOnly}');\\nUsage\\n| where TimeGenerated {Lookback}\\n| where billable == false or IsBillable == true\\n| summarize MB = sum(Quantity) by bin(TimeGenerated, 1h), DataType\\n| order by TimeGenerated asc\\n| render timechart\",\n        \"size\": 0,\n        \"title\": \"Hourly ingestion by DataType\",\n        \"queryType\": 0,\n        \"resourceType\": \"microsoft.operationalinsights/workspaces\"\n      },\n      \"name\": \"chart-pertable\"\n    },\n    {\n      \"type\": 3,\n      \"content\": {\n        \"version\": \"KqlItem/1.0\",\n        \"query\": \"let billable = tobool('{BillableOnly}');\\nlet last1 = Usage | where TimeGenerated > ago(1h) | where billable == false or IsBillable == true | summarize Last1hMB = sum(Quantity) by DataType;\\nlet avg24 = Usage | where TimeGenerated > ago(24h) | where billable == false or IsBillable == true | summarize MB = sum(Quantity) by DataType | extend Avg24hMBph = MB / 24.0 | project DataType, Avg24hMBph;\\nlast1\\n| join kind=fullouter avg24 on DataType\\n| extend DataType = coalesce(DataType, DataType1)\\n| project DataType, Last1hMB = coalesce(Last1hMB, 0.0), Avg24hMBph = coalesce(Avg24hMBph, 0.0)\\n| extend SpikeRatio = iif(Avg24hMBph == 0.0, 0.0, Last1hMB / Avg24hMBph)\\n| order by SpikeRatio desc\",\n        \"size\": 0,\n        \"title\": \"Per-table last hour vs 24h average\",\n        \"queryType\": 0,\n        \"resourceType\": \"microsoft.operationalinsights/workspaces\",\n        \"gridSettings\": {\n          \"formatters\": [\n            { \"columnMatch\": \"Last1hMB\", \"formatter\": 8, \"formatOptions\": { \"palette\": \"blue\" } },\n            { \"columnMatch\": \"Avg24hMBph\", \"formatter\": 8, \"formatOptions\": { \"palette\": \"gray\" } },\n            { \"columnMatch\": \"SpikeRatio\", \"formatter\": 8, \"formatOptions\": { \"palette\": \"redGreen\" } }\n          ]\n        }\n      },\n      \"name\": \"grid-pertable\"\n    }\n  ],\n  \"fallbackResourceIds\": [],\n  \"$schema\": \"https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json\"\n}\n",
+        "version": "1.0",
+        "sourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspace'))]",
+        "category": "sentinel"
+      }
+    }
+  ],
+  "outputs": {
+    "solutionName": {
+      "type": "string",
+      "value": "SentinelUsageMon"
+    },
+    "workbookResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Insights/workbooks', parameters('workbookId'))]"
+    }
+  }
+}
