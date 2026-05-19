@@ -2,6 +2,18 @@
 
 Solution-hub-style content for Microsoft Sentinel that monitors hourly ingestion velocity from the `Usage` table, surfaces anomalies, projects end-of-month ingestion, and ships scheduled detection rules for alerting.
 
+## Deploy
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FmainTemplate.json)
+[![Deploy to Azure Gov](https://aka.ms/deploytoazuregovbutton)](https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FmainTemplate.json)
+
+The button deploys the four analytics rules. You will be prompted for:
+
+- **Workspace** — the name of your Sentinel-enabled Log Analytics workspace (must be in the resource group you select on the portal blade).
+- **Rule Enabled** — leave `true` to enable on deploy, or `false` to deploy disabled.
+
+The workbook is **not** deployable via the button because the portal template UI cannot accept the large `workbookSerializedData` parameter inline. Use the helper script or the manual portal-import flow in [Deployment](#deployment) below.
+
 ## What's included
 
 - Analytics rules (ARM):
