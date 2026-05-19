@@ -6,11 +6,11 @@ Solution-hub-style content for Microsoft Sentinel that monitors hourly ingestion
 
 One-click deploy — pick a target:
 
-| What | Commercial | Gov |
-|---|---|---|
-| **Everything** (4 rules + workbook) | [![Deploy](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2Fazuredeploy.json) | [![Deploy Gov](https://aka.ms/deploytoazuregovbutton)](https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2Fazuredeploy.json) |
-| Analytics rules only | [![Deploy](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FmainTemplate.json) | [![Deploy Gov](https://aka.ms/deploytoazuregovbutton)](https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FmainTemplate.json) |
-| Workbook only | [![Deploy](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FworkbookTemplate.portal.json) | [![Deploy Gov](https://aka.ms/deploytoazuregovbutton)](https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FworkbookTemplate.portal.json) |
+| What | Deploy |
+|---|---|
+| **Everything** (4 rules + workbook) | [![Deploy](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2Fazuredeploy.json) |
+| Analytics rules only | [![Deploy](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FmainTemplate.json) |
+| Workbook only | [![Deploy](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FworkbookTemplate.portal.json) |
 
 You will be prompted for:
 
