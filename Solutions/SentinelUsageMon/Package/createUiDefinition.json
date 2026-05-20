@@ -1,0 +1,77 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+    "handler": "Microsoft.Azure.CreateUIDef",
+    "version": "0.1.2-preview",
+    "parameters": {
+        "config": {
+            "isWizard": false,
+            "basics": {
+                "description": "Deploys the Sentinel Usage Velocity analytics rules and workbook into an existing Log Analytics workspace that has Microsoft Sentinel enabled.",
+                "subscription": {
+                    "constraints": {
+                        "validations": []
+                    },
+                    "resourceProviders": [
+                        "Microsoft.OperationalInsights",
+                        "Microsoft.SecurityInsights",
+                        "Microsoft.Insights"
+                    ]
+                },
+                "location": {
+                    "label": "Workspace region",
+                    "toolTip": "Region of the target Log Analytics workspace. Resources are created in this region.",
+                    "resourceTypes": [
+                        "Microsoft.OperationalInsights/workspaces"
+                    ]
+                }
+            }
+        },
+        "basics": [
+            {
+                "name": "workspaceSelector",
+                "type": "Microsoft.Solutions.ResourceSelector",
+                "label": "Sentinel workspace",
+                "toolTip": "Pick the Log Analytics workspace where Microsoft Sentinel is enabled. The selected workspace's resource group is used as the deployment scope.",
+                "resourceType": "Microsoft.OperationalInsights/workspaces",
+                "options": {
+                    "filter": {
+                        "subscription": "onBasics",
+                        "location": "onBasics"
+                    }
+                }
+            }
+        ],
+        "steps": [
+            {
+                "name": "options",
+                "label": "Options",
+                "elements": [
+                    {
+                        "name": "ruleEnabled",
+                        "type": "Microsoft.Common.CheckBox",
+                        "label": "Enable analytics rules on deploy",
+                        "defaultValue": true,
+                        "toolTip": "If checked, the four analytics rules are enabled immediately. Uncheck to deploy them in a disabled state."
+                    },
+                    {
+                        "name": "workbookDisplayName",
+                        "type": "Microsoft.Common.TextBox",
+                        "label": "Workbook display name",
+                        "defaultValue": "Sentinel Usage Velocity",
+                        "toolTip": "Name shown in the Sentinel/Azure Monitor Workbooks gallery.",
+                        "constraints": {
+                            "required": true,
+                            "regex": "^[A-Za-z0-9 _\\-().]{1,80}$",
+                            "validationMessage": "1-80 characters: letters, numbers, spaces, _ - ( ) ."
+                        }
+                    }
+                ]
+            }
+        ],
+        "outputs": {
+            "workspace": "[basics('workspaceSelector').name]",
+            "ruleEnabled": "[steps('options').ruleEnabled]",
+            "workbookDisplayName": "[steps('options').workbookDisplayName]"
+        }
+    }
+}

@@ -4,19 +4,22 @@ Solution-hub-style content for Microsoft Sentinel that monitors hourly ingestion
 
 ## Deploy
 
-One-click deploy — pick a target:
+One-click deploy — pick a target. Each button opens the Azure portal’s Custom Deployment blade with a **workspace picker** (powered by [createUiDefinition.json](Solutions/SentinelUsageMon/Package/createUiDefinition.json)) — no typing workspace names or IDs.
 
 | What | Deploy |
 |---|---|
-| **Everything** (4 rules + workbook) | [![Deploy](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2Fazuredeploy.json) |
-| Analytics rules only | [![Deploy](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FmainTemplate.json) |
-| Workbook only | [![Deploy](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FworkbookTemplate.portal.json) |
+| **Everything** (4 rules + workbook) | [![Deploy](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#blade/Microsoft_Azure_CreateUIDef/CustomDeploymentBlade/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2Fazuredeploy.json/uiFormDefinitionUri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FcreateUiDefinition.json) |
+| Analytics rules only | [![Deploy](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#blade/Microsoft_Azure_CreateUIDef/CustomDeploymentBlade/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FmainTemplate.json/uiFormDefinitionUri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FcreateUiDefinition.rules.json) |
+| Workbook only | [![Deploy](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#blade/Microsoft_Azure_CreateUIDef/CustomDeploymentBlade/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FworkbookTemplate.portal.json/uiFormDefinitionUri/https%3A%2F%2Fraw.githubusercontent.com%2Foguzhanf%2Fsentinelusagemon%2Frootbranch%2FSolutions%2FSentinelUsageMon%2FPackage%2FcreateUiDefinition.workbook.json) |
 
 You will be prompted for:
 
-- **Workspace** — the name of your Sentinel-enabled Log Analytics workspace (must live in the resource group you choose on the portal blade).
-- **Rule Enabled** (rules / everything) — leave `true` to enable on deploy, or `false` to deploy disabled.
-- **Workbook Display Name** (workbook / everything) — defaults to *Sentinel Usage Velocity*.
+- **Subscription / Region** — the picker below filters workspaces to this scope. Choose the region of your Sentinel workspace.
+- **Sentinel workspace** — a dropdown of existing Log Analytics workspaces in the selected subscription + region. The resource group is inferred from the workspace you pick.
+- **Enable analytics rules on deploy** (rules / everything) — checked by default.
+- **Workbook display name** (workbook / everything) — defaults to *Sentinel Usage Velocity*.
+
+> Tip: if you’d rather use the bare templates (text-box workspace input), browse to `https://portal.azure.com/#create/Microsoft.Template/uri/<RAW_TEMPLATE_URL>`.
 
 > The portal-ready templates ([azuredeploy.json](Solutions/SentinelUsageMon/Package/azuredeploy.json) and [workbookTemplate.portal.json](Solutions/SentinelUsageMon/Package/workbookTemplate.portal.json)) embed the workbook JSON inline. If you edit [UsageVelocity.workbook.json](Solutions/SentinelUsageMon/Workbooks/UsageVelocity.workbook.json), regenerate them with `python3 Solutions/SentinelUsageMon/Package/build-portal-templates.py`.
 

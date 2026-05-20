@@ -1,0 +1,58 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+    "handler": "Microsoft.Azure.CreateUIDef",
+    "version": "0.1.2-preview",
+    "parameters": {
+        "config": {
+            "isWizard": false,
+            "basics": {
+                "description": "Deploys the Sentinel Usage Velocity workbook bound to an existing Log Analytics workspace.",
+                "subscription": {
+                    "resourceProviders": [
+                        "Microsoft.OperationalInsights",
+                        "Microsoft.Insights"
+                    ]
+                },
+                "location": {
+                    "label": "Workspace region",
+                    "toolTip": "Region of the target Log Analytics workspace.",
+                    "resourceTypes": [
+                        "Microsoft.OperationalInsights/workspaces"
+                    ]
+                }
+            }
+        },
+        "basics": [
+            {
+                "name": "workspaceSelector",
+                "type": "Microsoft.Solutions.ResourceSelector",
+                "label": "Sentinel workspace",
+                "toolTip": "Pick the Log Analytics workspace where the workbook should query data from.",
+                "resourceType": "Microsoft.OperationalInsights/workspaces",
+                "options": {
+                    "filter": {
+                        "subscription": "onBasics",
+                        "location": "onBasics"
+                    }
+                }
+            },
+            {
+                "name": "workbookDisplayName",
+                "type": "Microsoft.Common.TextBox",
+                "label": "Workbook display name",
+                "defaultValue": "Sentinel Usage Velocity",
+                "toolTip": "Name shown in the Workbooks gallery.",
+                "constraints": {
+                    "required": true,
+                    "regex": "^[A-Za-z0-9 _\\-().]{1,80}$",
+                    "validationMessage": "1-80 characters: letters, numbers, spaces, _ - ( ) ."
+                }
+            }
+        ],
+        "steps": [],
+        "outputs": {
+            "workspace": "[basics('workspaceSelector').name]",
+            "workbookDisplayName": "[basics('workbookDisplayName')]"
+        }
+    }
+}

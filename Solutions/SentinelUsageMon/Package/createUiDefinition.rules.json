@@ -1,0 +1,53 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+    "handler": "Microsoft.Azure.CreateUIDef",
+    "version": "0.1.2-preview",
+    "parameters": {
+        "config": {
+            "isWizard": false,
+            "basics": {
+                "description": "Deploys the Sentinel Usage analytics rules (Hourly spike, Table anomaly, Ingestion drop, Velocity anomaly) into an existing Log Analytics workspace that has Microsoft Sentinel enabled.",
+                "subscription": {
+                    "resourceProviders": [
+                        "Microsoft.OperationalInsights",
+                        "Microsoft.SecurityInsights"
+                    ]
+                },
+                "location": {
+                    "label": "Workspace region",
+                    "toolTip": "Region of the target Log Analytics workspace.",
+                    "resourceTypes": [
+                        "Microsoft.OperationalInsights/workspaces"
+                    ]
+                }
+            }
+        },
+        "basics": [
+            {
+                "name": "workspaceSelector",
+                "type": "Microsoft.Solutions.ResourceSelector",
+                "label": "Sentinel workspace",
+                "toolTip": "Pick the Log Analytics workspace where Microsoft Sentinel is enabled.",
+                "resourceType": "Microsoft.OperationalInsights/workspaces",
+                "options": {
+                    "filter": {
+                        "subscription": "onBasics",
+                        "location": "onBasics"
+                    }
+                }
+            },
+            {
+                "name": "ruleEnabled",
+                "type": "Microsoft.Common.CheckBox",
+                "label": "Enable analytics rules on deploy",
+                "defaultValue": true,
+                "toolTip": "If checked, the four analytics rules are enabled immediately."
+            }
+        ],
+        "steps": [],
+        "outputs": {
+            "workspace": "[basics('workspaceSelector').name]",
+            "ruleEnabled": "[basics('ruleEnabled')]"
+        }
+    }
+}
